@@ -92,8 +92,6 @@ int compute_integral(double integral_start, double integral_end, size_t nthreads
 
         struct thread_info *tinfo = (struct thread_info *) (buf + i * alignment);
 
-        printf("[%lg, %lg] = %lg\n", tinfo->start, tinfo->end, tinfo->res);
-
         if (i < nthreads)
             *result += tinfo->res;
     }
