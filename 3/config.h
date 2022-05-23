@@ -15,7 +15,7 @@
 
 #define BACK_LOG 255
 
-#define BROADCAST_MSG "MAGIC"
+#define BROADCAST_MSG "qebtmhsv"
 
 #define MSGSIZE 0x10
 
@@ -24,6 +24,6 @@
 #define FUNC(x) ((x) * (x))
 #define DX 1e-6
 #define RANGE_START 0
-#define RANGE_END 100.0
+#define RANGE_END  500.0
 
 #endif // CONFIG_H_INCUDED

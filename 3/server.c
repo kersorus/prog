@@ -12,8 +12,23 @@
 #include "config.h"
 #include "debug.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
+    if (argc != 2)
+    {
+        fprintf(stderr, "Usage: %s <number of clients>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    errno = 0;
+    char *endptr;
+    size_t nclients = strtoul(argv[1], &endptr, 10);
+    if (errno || *endptr || nclients >= NCLIENTS_MAX)
+    {
+        fprintf(stderr, "Bad number of clients\n");
+        exit(EXIT_FAILURE);
+    }
+
     int listening_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
     CHECKR(listening_socket == -1, "socket");
 
@@ -67,7 +82,6 @@ int main(int argc, char *argv[])
 
     printf("Accepting clients...\n");
 
-    int nclients = 0;
     struct Client {
         int socket;
         size_t nthreads;
@@ -78,29 +92,30 @@ int main(int argc, char *argv[])
         .tv_usec = 0,
     };
 
-    for (; nclients < NCLIENTS_MAX; nclients++) 
+    size_t i = 0;
+    for (; i < nclients; i++)
     {
-        client_list[nclients].socket = accept(listening_socket, NULL, NULL);
-        if (client_list[nclients].socket != -1) 
+        client_list[i].socket = accept(listening_socket, NULL, NULL);
+        if (client_list[i].socket != -1) 
         {
-            ret = setsockopt(client_list[nclients].socket, SOL_SOCKET, SO_RCVTIMEO,
+            ret = setsockopt(client_list[i].socket, SOL_SOCKET, SO_RCVTIMEO,
                              &no_timeout, sizeof(no_timeout));
             CHECKR(ret == -1, "setsockopt");
 
             opt = 1;
-            ret = setsockopt(client_list[nclients].socket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+            ret = setsockopt(client_list[i].socket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
             CHECKR(ret == -1, "setsockopt");
 
             int ka_probs = TCP_KEEP_ALIVE_PROBES;
-            ret = setsockopt(client_list[nclients].socket, IPPROTO_TCP, TCP_KEEPCNT, &ka_probs, sizeof(ka_probs));
+            ret = setsockopt(client_list[i].socket, IPPROTO_TCP, TCP_KEEPCNT, &ka_probs, sizeof(ka_probs));
             CHECKR(ret == -1, "setsockopt");
 
             int ka_time = TCP_KEEP_ALIVE_TIME;
-            ret = setsockopt(client_list[nclients].socket, IPPROTO_TCP, TCP_KEEPIDLE, &ka_time, sizeof(ka_time));
+            ret = setsockopt(client_list[i].socket, IPPROTO_TCP, TCP_KEEPIDLE, &ka_time, sizeof(ka_time));
             CHECKR(ret == -1, "setsockopt");
 
             int ka_intvl = TCP_KEEP_ALIVE_INTVL;
-            ret = setsockopt(client_list[nclients].socket, IPPROTO_TCP, TCP_KEEPINTVL, &ka_intvl, sizeof(ka_intvl));
+            ret = setsockopt(client_list[i].socket, IPPROTO_TCP, TCP_KEEPINTVL, &ka_intvl, sizeof(ka_intvl));
             CHECKR(ret == -1, "setsockopt");
         }
         else
@@ -112,27 +127,20 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (nclients == 0)
+    if (i != nclients)
     {
-        printf("No response to broadcast\n");
+        printf("Not enough clients\n");
         exit(EXIT_FAILURE);
     }
-    else if (nclients == NCLIENTS_MAX)
-    {
-        printf("To many answers\n");
-        exit(EXIT_FAILURE);
-    }
-    else
-        printf("%d answers are received\n", nclients);
 
     char msg[2 * MSGSIZE];
     size_t total_nthreads = 0;
-    for (int i = 0; i < nclients; ++i) 
+    for (i = 0; i < nclients; ++i) 
     {
         ret = recv(client_list[i].socket, msg, sizeof(msg), 0);
         CHECKR(ret != sizeof(msg), "recv");
         sscanf(msg, "%lu\n", &client_list[i].nthreads);
-        printf("Client %d has %lu threads\n", i, client_list[i].nthreads);
+        printf("Client %lu has %lu threads\n", i, client_list[i].nthreads);
         total_nthreads += client_list[i].nthreads;
     }
 
@@ -140,7 +148,7 @@ int main(int argc, char *argv[])
 
     double step = (RANGE_END - RANGE_START) / total_nthreads;
     double start = RANGE_START;
-    for (int i = 0; i < nclients; i++)
+    for (i = 0; i < nclients; i++)
     {
         double end = start + step * client_list[i].nthreads;
         snprintf(msg, MSGSIZE, "%f", start);
@@ -153,7 +161,7 @@ int main(int argc, char *argv[])
     }
       
     double result = 0.0;
-    for (int i = 0; i < nclients; i++)
+    for (i = 0; i < nclients; i++)
     {
         ret = recv(client_list[i].socket, msg, sizeof(msg), 0);
         CHECKR(ret != sizeof(msg), "recv");
@@ -161,12 +169,11 @@ int main(int argc, char *argv[])
         errno = 0;
         result += strtod(msg, NULL);
         CHECKR(errno, "strtod");
+
+        close(client_list[i].socket);
     }
       
     printf("Computing is completed: %lg\n", result);
-
-    for (int i = 0; i < nclients; i++)
-        close(client_list[i].socket);
 
     close(listening_socket);
     
