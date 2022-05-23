@@ -60,7 +60,10 @@ int main(int argc, char *argv[])
 
         ret = strncmp(BROADCAST_MSG, broadcast_msg, sizeof(BROADCAST_MSG));
         if (ret != 0)
+        {
             fprintf(stderr, "Bad broadcast message: %s\n", broadcast_msg);
+            exit(EXIT_FAILURE);
+        }
 
         int connected_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
         CHECKR(connected_socket == -1, "socket");

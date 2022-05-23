@@ -56,7 +56,7 @@ int compute_integral(double integral_start, double integral_end, size_t nthreads
     CHECKR(errno, "posix_memalign() error")
 
     double step = (integral_end - integral_start) / (double) nthreads;
-    double start = 0.0;
+    double start = integral_start;
     for (unsigned long i = 0; i < MAX(nthreads, nprocs); i++, start += step)
     {
         cpu_set_t set;
@@ -90,9 +90,12 @@ int compute_integral(double integral_start, double integral_end, size_t nthreads
         errno = pthread_join(thread[i], NULL);
         CHECKR(errno, "pthread_join() error")
 
-        double thread_res = ((struct thread_info *)(buf + i * alignment))->res;
+        struct thread_info *tinfo = (struct thread_info *) (buf + i * alignment);
+
+        printf("[%lg, %lg] = %lg\n", tinfo->start, tinfo->end, tinfo->res);
+
         if (i < nthreads)
-            *result += thread_res;
+            *result += tinfo->res;
     }
 
     free(buf);
