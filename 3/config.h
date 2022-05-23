@@ -21,7 +21,7 @@
 
 #include <math.h>
 
-#define FUNC(x) ((x) * (x))
+#define FUNC(x) (sin(x) * cos(x) * (x))
 #define DX 1e-6
 #define RANGE_START 0
 #define RANGE_END  500.0
